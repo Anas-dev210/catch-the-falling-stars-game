@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Catch the Falling Stars</title>
+<style>
+  body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #000;
+  }
+  canvas {
+    border: 2px solid #fff;
+    background: linear-gradient(to top, #ff9933, #cc3399 60%, #330066);
+    display: block;
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const basket = { x: canvas.width / 2 - 40, y: canvas.height - 30, width: 80, height: 20, speed: 7 };
+let stars = [];
+let score = 0;
+let highScore = localStorage.getItem('highScore') || 0;
+let gameTime = 60;
+let starSpeed = 2;
+let lastTime = Date.now();
+
+const keys = {};
+document.addEventListener('keydown', e => keys[e.key] = true);
+document.addEventListener('keyup', e => keys[e.key] = false);
+
+function spawnStar() {
+  const x = Math.random() * (canvas.width - 20) + 10;
+  stars.push({ x, y: 0, size: 10 });
+}
+setInterval(spawnStar, 1000);
+
+function drawBasket() {
+  const grad = ctx.createLinearGradient(basket.x, basket.y, basket.x, basket.y + basket.height);
+  grad.addColorStop(0, '#8B4513');
+  grad.addColorStop(1, '#5C3317');
+  ctx.fillStyle = grad;
+  ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
+}
+
+function drawStar(star) {
+  ctx.save();
+  ctx.shadowColor = 'gold';
+  ctx.shadowBlur = 15;
+  const grad = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, star.size);
+  grad.addColorStop(0, '#fff7b2');
+  grad.addColorStop(0.5, 'gold');
+  grad.addColorStop(1, '#cc9900');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    ctx.lineTo(
+      star.x + star.size * Math.cos((18 + i * 72) * Math.PI / 180),
+      star.y - star.size * Math.sin((18 + i * 72) * Math.PI / 180)
+    );
+    ctx.lineTo(
+      star.x + (star.size / 2) * Math.cos((54 + i * 72) * Math.PI / 180),
+      star.y - (star.size / 2) * Math.sin((54 + i * 72) * Math.PI / 180)
+    );
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function update() {
+  const now = Date.now();
+  const delta = (now - lastTime) / 1000;
+  lastTime = now;
+
+  if (keys['ArrowLeft']) basket.x -= basket.speed;
+  if (keys['ArrowRight']) basket.x += basket.speed;
+  basket.x = Math.max(0, Math.min(canvas.width - basket.width, basket.x));
+
+  stars.forEach(star => star.y += starSpeed);
+
+  stars = stars.filter(star => {
+    if (
+      star.y + star.size > basket.y &&
+      star.x > basket.x &&
+      star.x < basket.x + basket.width
+    ) {
+      score++;
+      return false;
+    }
+    return star.y < canvas.height + star.size;
+  });
+
+  if (Math.floor((GAME_DURATION - gameTime) % 15) === 0) {
+    starSpeed = 2 + Math.floor((GAME_DURATION - gameTime) / 15);
+  }
+
+  gameTime -= delta;
+  if (gameTime <= 0) {
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('highScore', highScore);
+    }
+    resetGame();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawBasket();
+  stars.forEach(drawStar);
+  ctx.fillStyle = '#fff';
+  ctx.font = '20px Arial';
+  ctx.fillText(`Score: ${score}`, 20, 30);
+  ctx.fillText(`High Score: ${highScore}`, canvas.width - 160, 30);
+  ctx.fillText(`Time: ${Math.ceil(gameTime)}`, canvas.width / 2 - 30, 30);
+}
+
+function resetGame() {
+  score = 0;
+  stars = [];
+  gameTime = 60;
+  starSpeed = 2;
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+const GAME_DURATION = 60;
+resetGame();
+loop();
+</script>
+</body>
+</html>
